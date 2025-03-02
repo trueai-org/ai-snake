@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>AI界最强版-贪吃蛇传奇版</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        body {
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            height:100vh;
+            background:linear-gradient(135deg,#f39c12,#8e44ad);
+            font-family: 'Press Start 2P', cursive;
+            overflow:hidden;
+            margin:0;
+        }
+        .container {
+            border-radius:20px;
+            backdrop-filter:blur(15px);
+            background:rgba(255,255,255,0.2);
+            padding:20px;
+            box-shadow:0 6px 15px rgba(0,0,0,0.3);
+        }
+        canvas {
+            border-radius:15px;
+            background:linear-gradient(45deg,#34495e,#2c3e50);
+            box-shadow:0 15px 25px rgba(0,0,0,0.4);
+        }
+        .score {
+            color:#fff;
+            margin-top:15px;
+            text-align:center;
+            font-size:16px;
+        }
+        .title {
+            color:#fff;
+            text-align:center;
+            margin-bottom:10px;
+            font-size:22px;
+            animation:pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { transform: scale(1);}
+            50% { transform: scale(1.08);}
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">🐍 贪吃蛇传奇 🕹️</div>
+        <canvas id="snake" width="400" height="400"></canvas>
+        <div class="score">得分: <span id="score">0</span></div>
+    </div>
+
+<script>
+    const canvas=document.getElementById("snake"),
+          ctx=canvas.getContext("2d"),
+          scoreDisplay=document.getElementById('score'),
+          gsapAnim=gsap.timeline({repeat:0});
+
+    let snake=[{x:200,y:200}],
+        food={x:0,y:0,color:'#e74c3c'},
+        dx=20,dy=0,score=0,
+        changing_direction=false;
+
+    function randomFood() {
+        food.x= Math.floor(Math.random()*20)*20;
+        food.y= Math.floor(Math.random()*20)*20;
+        food.color=`hsl(${Math.random()*360},80%,60%)`;
+        gsap.fromTo(food, {scale:0},{scale:1,duration:0.4,ease:"elastic.out(1,0.3)"});
+    }
+
+    document.addEventListener("keydown",changeDirection);
+
+    function changeDirection(event) {
+        if(changing_direction)return;
+        changing_direction=true;
+        const LEFT=37,UP=38,RIGHT=39,DOWN=40;
+        const keyPressed=event.keyCode;
+        const goingUp=dy===-20,goingDown=dy===20,goingLeft=dx===-20,goingRight=dx===20;
+        if(keyPressed===LEFT&&!goingRight){dx=-20;dy=0;}
+        else if(keyPressed===UP&&!goingDown){dx=0;dy=-20;}
+        else if(keyPressed===RIGHT&&!goingLeft){dx=20;dy=0;}
+        else if(keyPressed===DOWN&&!goingUp){dx=0;dy=20;}
+    }
+
+    function gameEnd() {
+        for(let i=4;i<snake.length;i++)
+            if(snake[i].x===snake[0].x&&snake[i].y===snake[0].y)return true;
+        const hitWall=snake[0].x<0||snake[0].x>=canvas.width||snake[0].y<0||snake[0].y>=canvas.height;
+        return hitWall;
+    }
+
+    function draw(){
+        if(gameEnd()){
+            gsap.fromTo(canvas,{opacity:1},{opacity:0,repeat:3,yoyo:true,onComplete:()=>location.reload()});
+            return;
+        }
+        changing_direction=false;
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        snake.unshift({x:snake[0].x+dx,y:snake[0].y+dy});
+
+        if(snake[0].x===food.x&&snake[0].y===food.y){
+            score+=10;
+            scoreDisplay.textContent=score;
+            randomFood();
+        }else{
+            snake.pop();
+        }
+
+        snake.forEach((part,index)=>{
+            ctx.fillStyle=`hsl(${(index*10)+200},90%,60%)`;
+            ctx.shadowBlur=10;
+            ctx.shadowColor="#fff";
+            ctx.beginPath();
+            ctx.arc(part.x+10, part.y+10, 9, 0, Math.PI*2);
+            ctx.fill();
+        });
+
+        ctx.shadowBlur=20;
+        ctx.shadowColor=food.color;
+        ctx.fillStyle=food.color;
+        ctx.beginPath();
+        ctx.arc(food.x+10, food.y+10,10,0,Math.PI*2);
+        ctx.fill();
+
+        setTimeout(draw,100);
+    }
+
+    randomFood();
+    draw();
+
+    //开场动画：超级丝滑高级感！
+    gsapAnim.from(".container",{duration:1,y:-100,opacity:0,ease:"bounce.out"});
+</script>
+</body>
+</html>

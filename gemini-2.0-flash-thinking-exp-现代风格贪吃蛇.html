@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>现代风格贪吃蛇</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            font-family: Arial, sans-serif;
+        }
+
+        .game-container {
+            margin-top: 20px;
+            position: relative;
+        }
+
+        canvas {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .score {
+            color: #fff;
+            font-size: 24px;
+            margin: 20px 0;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .restart-btn {
+            padding: 12px 24px;
+            font-size: 18px;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .restart-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="score">得分: <span id="score">0</span></div>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+    </div>
+    <button class="restart-btn" onclick="restartGame()">重新开始</button>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        let snake = [
+            {x: 300, y: 300},
+            {x: 290, y: 300},
+            {x: 280, y: 300}
+        ];
+        
+        let dx = 10;
+        let dy = 0;
+        let foodX = 0;
+        let foodY = 0;
+        let score = 0;
+        let gameLoop;
+
+        function drawSnakePart(part) {
+            ctx.beginPath();
+            ctx.roundRect(part.x, part.y, 8, 8, 3);
+            ctx.fillStyle = 'linear-gradient(45deg, #4CAF50, #45a049)';
+            ctx.fill();
+            ctx.strokeStyle = '#388E3C';
+            ctx.stroke();
+        }
+
+        function drawFood() {
+            ctx.beginPath();
+            ctx.arc(foodX + 5, foodY + 5, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#FF5252';
+            ctx.fill();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#FF5252';
+        }
+
+        function generateFood() {
+            foodX = Math.floor(Math.random() * (canvas.width - 10) / 10) * 10;
+            foodY = Math.floor(Math.random() * (canvas.height - 10) / 10) * 10;
+        }
+
+        function moveSnake() {
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+            snake.unshift(head);
+
+            if(head.x === foodX && head.y === foodY) {
+                score += 10;
+                scoreElement.textContent = score;
+                generateFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function checkCollision() {
+            const head = snake[0];
+            return (
+                head.x < 0 || 
+                head.x >= canvas.width ||
+                head.y < 0 || 
+                head.y >= canvas.height ||
+                snake.slice(1).some(part => part.x === head.x && part.y === head.y)
+            );
+        }
+
+        function gameOver() {
+            clearInterval(gameLoop);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = '48px Arial';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.fillText('游戏结束!', canvas.width/2, canvas.height/2);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            snake.forEach(drawSnakePart);
+            drawFood();
+        }
+
+        function main() {
+            if(checkCollision()) {
+                gameOver();
+                return;
+            }
+            moveSnake();
+            draw();
+        }
+
+        function restartGame() {
+            snake = [
+                {x: 300, y: 300},
+                {x: 290, y: 300},
+                {x: 280, y: 300}
+            ];
+            dx = 10;
+            dy = 0;
+            score = 0;
+            scoreElement.textContent = score;
+            generateFood();
+            clearInterval(gameLoop);
+            gameLoop = setInterval(main, 100);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp':
+                    if(dy === 0) { dx = 0; dy = -10; }
+                    break;
+                case 'ArrowDown':
+                    if(dy === 0) { dx = 0; dy = 10; }
+                    break;
+                case 'ArrowLeft':
+                    if(dx === 0) { dx = -10; dy = 0; }
+                    break;
+                case 'ArrowRight':
+                    if(dx === 0) { dx = 10; dy = 0; }
+                    break;
+            }
+        });
+
+        generateFood();
+        gameLoop = setInterval(main, 100);
+    </script>
+</body>
+</html>

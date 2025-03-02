@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>幻光贪食蛇 | CyberSnake v2.0</title>
+    <!-- 引入 GSAP 动画库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-purple: #bc13fe;
+            --matrix-green: #0f0;
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        .cyber-frame {
+            position: relative;
+            margin: 2rem;
+            padding: 3px;
+            background: linear-gradient(45deg, 
+                var(--neon-blue) 0%, 
+                var(--neon-purple) 100%);
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.3);
+        }
+
+        #gameCanvas {
+            background: #000;
+            border-radius: 12px;
+            cursor: none;
+        }
+
+        .hud {
+            display: flex;
+            gap: 2rem;
+            color: var(--neon-blue);
+            font-size: 1.5rem;
+            text-shadow: 0 0 10px var(--neon-blue);
+            margin: 1rem 0;
+        }
+
+        .cyber-button {
+            background: none;
+            border: 2px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 0.8rem 2rem;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cyber-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(0, 243, 255, 0.4),
+                transparent
+            );
+            transition: 0.5s;
+        }
+
+        .cyber-button:hover {
+            box-shadow: 0 0 20px var(--neon-blue);
+            background: rgba(0, 243, 255, 0.1);
+        }
+
+        .cyber-button:hover::before {
+            left: 100%;
+        }
+
+        .game-over {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 2rem;
+            border: 2px solid var(--neon-purple);
+            border-radius: 15px;
+            text-align: center;
+            color: var(--neon-purple);
+            display: none;
+        }
+
+        .scanline {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.1) 10%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            animation: scan 3s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    <h1 style="color: var(--neon-blue); text-shadow: 0 0 20px var(--neon-blue);">CYBER SNAKE 2.0</h1>
+    <div class="hud">
+        <div>得分: <span id="score">0</span></div>
+        <div>最高分: <span id="highScore">0</span></div>
+    </div>
+    <div class="cyber-frame">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+    </div>
+    <button class="cyber-button" onclick="toggleGame()">开始游戏</button>
+    <div class="game-over" id="gameOver">
+        <h2>系统崩溃！</h2>
+        <p>最终得分: <span id="finalScore">0</span></p>
+        <button class="cyber-button" onclick="restartGame()">重新初始化</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const CELL_SIZE = 20;
+        let snake = [{x: 10, y: 10}];
+        let food = generateFood();
+        let direction = 'right';
+        let nextDirection = 'right';
+        let score = 0;
+        let highScore = 0;
+        let gameLoop;
+        let isPlaying = false;
+
+        // GSAP 动画配置
+        const animateSnake = (x, y) => {
+            gsap.fromTo(canvas,
+                { rotation: -1 },
+                { 
+                    rotation: 1,
+                    duration: 0.1,
+                    ease: "power1.inOut",
+                    repeat: 1,
+                    yoyo: true,
+                    transformOrigin: "center center"
+                }
+            );
+        };
+
+        function generateFood() {
+            const position = {
+                x: Math.floor(Math.random() * (canvas.width/CELL_SIZE)),
+                y: Math.floor(Math.random() * (canvas.height/CELL_SIZE))
+            };
+            
+            // 食物生成动画
+            gsap.to(ctx, {
+                duration: 0.3,
+                onStart: () => {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.beginPath();
+                    ctx.arc(
+                        position.x * CELL_SIZE + CELL_SIZE/2,
+                        position.y * CELL_SIZE + CELL_SIZE/2,
+                        CELL_SIZE/2, 0, Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+            });
+
+            return position;
+        }
+
+        function draw() {
+            // 赛博网格背景
+            ctx.fillStyle = 'rgba(0, 50, 50, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制蛇身（渐变效果）
+            snake.forEach((segment, index) => {
+                const gradient = ctx.createRadialGradient(
+                    segment.x * CELL_SIZE + CELL_SIZE/2,
+                    segment.y * CELL_SIZE + CELL_SIZE/2,
+                    0,
+                    segment.x * CELL_SIZE + CELL_SIZE/2,
+                    segment.y * CELL_SIZE + CELL_SIZE/2,
+                    CELL_SIZE
+                );
+                
+                gradient.addColorStop(0, `hsl(${index * 10}, 100%, 50%)`);
+                gradient.addColorStop(1, `hsl(${index * 10 + 90}, 100%, 25%)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.roundRect(
+                    segment.x * CELL_SIZE,
+                    segment.y * CELL_SIZE,
+                    CELL_SIZE,
+                    CELL_SIZE,
+                    5
+                );
+                ctx.fill();
+            });
+
+            // 绘制食物（动态发光效果）
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(
+                food.x * CELL_SIZE + CELL_SIZE/2,
+                food.y * CELL_SIZE + CELL_SIZE/2,
+                CELL_SIZE/2,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function gameStep() {
+            direction = nextDirection;
+            const head = {...snake[0]};
+
+            switch(direction) {
+                case 'right': head.x++; break;
+                case 'left': head.x--; break;
+                case 'up': head.y--; break;
+                case 'down': head.y++; break;
+            }
+
+            // 碰撞检测
+            if (head.x < 0 || head.x >= canvas.width/CELL_SIZE ||
+                head.y < 0 || head.y >= canvas.height/CELL_SIZE ||
+                snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                endGame();
+                return;
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score += 100;
+                document.getElementById('score').textContent = score;
+                food = generateFood();
+                animateSnake();
+            } else {
+                snake.pop();
+            }
+
+            draw();
+        }
+
+        function toggleGame() {
+            if (!isPlaying) {
+                isPlaying = true;
+                gameLoop = setInterval(gameStep, 100);
+                document.addEventListener('keydown', handleKeyPress);
+            }
+        }
+
+        function handleKeyPress(e) {
+            const keyMap = {
+                ArrowUp: 'up',
+                ArrowDown: 'down',
+                ArrowLeft: 'left',
+                ArrowRight: 'right'
+            };
+
+            if (keyMap[e.key] && !isOppositeDirection(keyMap[e.key])) {
+                nextDirection = keyMap[e.key];
+            }
+        }
+
+        function isOppositeDirection(newDir) {
+            return (
+                (direction === 'up' && newDir === 'down') ||
+                (direction === 'down' && newDir === 'up') ||
+                (direction === 'left' && newDir === 'right') ||
+                (direction === 'right' && newDir === 'left')
+            );
+        }
+
+        function endGame() {
+            clearInterval(gameLoop);
+            isPlaying = false;
+            document.getElementById('gameOver').style.display = 'block';
+            document.getElementById('finalScore').textContent = score;
+            highScore = Math.max(score, highScore);
+            document.getElementById('highScore').textContent = highScore;
+            score = 0;
+            document.getElementById('score').textContent = '0';
+        }
+
+        function restartGame() {
+            snake = [{x: 10, y: 10}];
+            food = generateFood();
+            direction = 'right';
+            nextDirection = 'right';
+            document.getElementById('gameOver').style.display = 'none';
+            draw();
+        }
+
+        // 初始化绘制
+        draw();
+    </script>
+</body>
+</html>
